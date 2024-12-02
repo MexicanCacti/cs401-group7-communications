@@ -70,7 +70,7 @@ public class UserManager {
 				//create user and add it to list of all users
 				User makeuser = new User(token.get(0), token.get(1), Boolean.valueOf(token.get(2)), id);
 				allUsers.put(token.get(0), makeuser);
-				allUserIDs.add(id);
+				allUserIDs.add(Integer.parseInt(token.get(1)));
 				
 				line.close();
 			}
@@ -329,13 +329,12 @@ public class UserManager {
 				}
 				
 				//then add the message to the User's inbox file
-				String messageFile = message.getToUserID()+ "Inbox.txt" ;
+				String messageFile = message.getToUserName() + message.getToUserID()+ "Inbox" + ".txt";
 				File sendFile = new File(messageFile);
 				FileWriter type = new FileWriter(sendFile, true); //opens file in append mode
 				
-				String toSend = message.storeInboxMessage();
-				type.write(toSend);
-				type.write("\n");
+				type.write(message.getContents() +  "\n" + message.getFromUserName());
+				type.write("\r\n");
 				type.close();
 				
 				create.setContents("Success");
@@ -493,6 +492,11 @@ public class UserManager {
 		}
 		return false;
 		
+	}
+	
+	public void logout(Message message) {
+		String username = message.getFromUserName();
+		activeUsers.remove(username);
 	}
 	
 	public void addChatroomToUser(int userID, int chatroomID)
