@@ -8,15 +8,11 @@ import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.ObjectOutputStream;
-import java.io.OutputStream;
-import java.net.Socket;
 import java.util.List;
 import java.util.ArrayList;
-import java.util.Map;
 import java.util.Scanner;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
-import java.util.HashMap;
 
 public class LogManager {
 	static ConcurrentHashMap<Integer, List<Message>> userMessageLogs;
@@ -37,9 +33,22 @@ public class LogManager {
 		for(Integer ID : allUserIDs) {
 			try 
 	        {
-	            String messageFile = Integer.toString(ID) + "Inbox.txt";
+	            String messageFile = Integer.toString(ID) + "userlog.txt";
+	            
+	            File myFile = null;
+	            
+	            try {
+	            	myFile = new File(messageFile);
 
-	            File myFile = new File(messageFile);
+		            if (myFile.createNewFile()) {
+		                continue; // file doesn't exist
+		            } else {
+		                System.out.println("File already exists.");
+		            }
+		        } catch (IOException e) {
+		            e.printStackTrace();
+		        }
+	            
 	            Scanner reader = new Scanner(myFile);
 
 	            //first populate the messages of the inbox
@@ -57,8 +66,8 @@ public class LogManager {
 	                    token.add(line.next());
 	                }
 
-	                //if there are more or less than 7 tokens, then it is invalid
-	                if (token.size() != 7)
+	                //if there are more or less than 4 tokens, then it is invalid
+	                if (token.size() != 4)
 	                {
 	                    line.close(); //do nothing and skip this iteration
 	                    continue;
@@ -68,14 +77,11 @@ public class LogManager {
 	                Message add;
 	                MessageCreator create;
 	                create = new MessageCreator(MessageType.UTU);
+	                
+	                create.setFromUserID(Integer.parseInt(token.get(0))); //add from user id
+	                create.setContents(token.get(1)); //add the message
+	                create.setDate(Long.parseLong(token.get(2))); // add the date
 
-	                create.setContents(token.get(0)); //add the message
-	                create.setDate(Long.parseLong(token.get(1))); // add the date
-	                create.setToUserName(token.get(2)); //add the toUsername
-	                create.setToUserID(Integer.parseInt(token.get(3))); //add the toUserid
-
-	                create.setFromUserName(token.get(4)); //add from username
-	                create.setFromUserID(Integer.parseInt(token.get(5))); //add from user id
 
 	                add = new Message(create);
 
@@ -98,9 +104,22 @@ public class LogManager {
 		for(Integer ID : allChatroomIDs) {
 			try 
 	        {
-	            String messageFile = Integer.toString(ID) + "Inbox.txt";
+	            String messageFile = Integer.toString(ID) + "chatlog.txt";
 
-	            File myFile = new File(messageFile);
+	            File myFile = null;
+	            
+	            try {
+	            	myFile = new File(messageFile);
+
+		            if (myFile.createNewFile()) {
+		                continue; // file doesn't exist
+		            } else {
+		                System.out.println("File already exists.");
+		            }
+		        } catch (IOException e) {
+		            e.printStackTrace();
+		        }
+	            
 	            Scanner reader = new Scanner(myFile);
 
 	            //first populate the messages of the inbox
@@ -119,7 +138,7 @@ public class LogManager {
 	                }
 
 	                //if there are more or less than 7 tokens, then it is invalid
-	                if (token.size() != 7)
+	                if (token.size() != 5)
 	                {
 	                    line.close(); //do nothing and skip this iteration
 	                    continue;
@@ -128,15 +147,12 @@ public class LogManager {
 	                //add all message to the arraylist
 	                Message add;
 	                MessageCreator create;
-	                create = new MessageCreator(MessageType.UTU);
+	                create = new MessageCreator(MessageType.UTC);
 
-	                create.setContents(token.get(0)); //add the message
-	                create.setDate(Long.parseLong(token.get(1))); // add the date
-	                create.setToUserName(token.get(2)); //add the toUsername
-	                create.setToUserID(Integer.parseInt(token.get(3))); //add the toUserid
-
-	                create.setFromUserName(token.get(4)); //add from username
-	                create.setFromUserID(Integer.parseInt(token.get(5))); //add from user id
+	                create.setFromUserID(Integer.parseInt(token.get(0))); //add from user id
+	                create.setContents(token.get(1)); //add the message
+	                create.setDate(Long.parseLong(token.get(2))); // add the date
+	                create.setToChatroom(Integer.parseInt(token.get(4)));
 
 	                add = new Message(create);
 
@@ -209,69 +225,23 @@ public class LogManager {
 		} // if
 
 	}// storeMessage
-
-	public List<Message> getLogs(String filePath) {
-	    List<Message> loadedMessages = new ArrayList<>();
-	    File loadLog = new File(filePath);
-	    
-	    try (Scanner scanner = new Scanner(loadLog)) {
-	        while (scanner.hasNextLine()) {
-	            String data = scanner.nextLine();
-	            String[] values = data.split("|");
-	            
-	            if (values.length < 4) continue; 
-
-	            // Extract the required information from the file
-	            int id = Integer.parseInt(values[0].trim());  
-	            String content = values[1].trim();            
-	            String timestamp = values[2].trim();          
-	            MessageType type = MessageType.valueOf(values[3].trim().toUpperCase());  // Message type
-	            
-	            // Create a new MessageCreator object
-	            MessageCreator messageCreator = new MessageCreator(type);
-	            
-	            // Depending on the message type, configure the message creator
-	            if (type == MessageType.GUL) { // User Log request
-	                int fromUserID = Integer.parseInt(values[0].trim());  // Assuming the user ID is stored here
-	                messageCreator.setFromUserID(fromUserID);
-	            } else if (type == MessageType.GCL) { // Chatroom Log request
-	                int toChatroom = Integer.parseInt(values[4].trim());  // Assuming the chatroom ID is in position 4
-	                messageCreator.setToChatroom(toChatroom);
-	            }
-
-	            // Set the fields in MessageCreator 
-	            messageCreator.setContents(content);
-	            
-	            // Create the Message object using the MessageCreator
-	            Message message = messageCreator.createMessage();
-	            loadedMessages.add(message);
-	        }
-	        
-	        System.out.println(filePath + " loaded successfully.");
-	        
-	    } catch (Exception e) {
-	        System.out.println("Error loading file: " + e.getMessage());
-	        System.out.println("File " + filePath + " does not exist.");
-	    }
-	    
-	    return loadedMessages;
-	}//getLogs
-
 	
 	public static void saveLogs(Message message) {
 		if(message.getMessageType().equals(MessageType.UTU)) {
-			String logFilePath = message.getFromUserName() + String.valueOf(message.getFromUserID()) + "log.txt";
+			String logFilePath = String.valueOf(message.getFromUserID()) + "userlog.txt";
 			try(FileWriter writer = new FileWriter(logFilePath, true)) { // True = will not overwrite
-				writer.write(String.valueOf(message.getFromUserID()) + "|" + message.getContents() + "|" + message.getDateSent().toString()  + "|" + message.getMessageType().toString());
+				writer.write(message.storeUserLogMessage() + "\n");
+				writer.close();
 			}
 			catch(IOException e) {
 				System.err.println("Error saving log of: " + logFilePath);
 			}
 		}
 		else if(message.getMessageType().equals(MessageType.UTC)) {
-			String logFilePath = String.valueOf(message.getToChatroomID()) + "log.txt";
+			String logFilePath = String.valueOf(message.getToChatroomID()) + "chatlog.txt";
 			try(FileWriter writer = new FileWriter(logFilePath, true)) {
-				writer.write(String.valueOf(message.getFromUserID()) + "|" + message.getContents() + "|" + message.getDateSent().toString() + "|" + message.getMessageType().toString() + "|" + String.valueOf(message.getToChatroomID()));
+				writer.write(message.storeChatLogMessage() + "\n");
+				writer.close();
 			}
 			catch(IOException e) {
 				System.err.println("Error saving log of: " + logFilePath);
